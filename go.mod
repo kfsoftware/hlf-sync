@@ -1,6 +1,6 @@
 module github.com/kfsoftware/hlf-sync
 
-go 1.14
+go 1.15
 
 require (
 	github.com/Knetic/govaluate v3.0.0+incompatible
@@ -13,7 +13,6 @@ require (
 	github.com/hyperledger/fabric-lib-go v1.0.0
 	github.com/hyperledger/fabric-protos-go v0.0.0-20200707132912-fee30f3ccd23
 	github.com/hyperledger/fabric-sdk-go v1.0.0-rc1
-	github.com/lib/pq v1.3.0
 	github.com/meilisearch/meilisearch-go v0.13.1
 	github.com/miekg/pkcs11 v1.0.3
 	github.com/mitchellh/mapstructure v1.3.2

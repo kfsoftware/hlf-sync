@@ -12,7 +12,6 @@ before:
     - go mod download
 
 builds:
-
   - id: hlf-sync
     binary: hlf-sync
     goos:
@@ -30,20 +29,21 @@ builds:
       - -trimpath
 
 archives:
-  -
-    format: binary
+  - format: binary
     allow_different_binary_count: true
 
 dockers:
-  -
-    # GOOS of the built binary that should be used.
+  - # GOOS of the built binary that should be used.
     goos: linux
     # GOARCH of the built binary that should be used.
     goarch: amd64
     dockerfile: Dockerfile
     image_templates:
       - "quay.io/kfsoftware/hlf-sync:{{ .Tag }}"
+      - "quay.io/kfsoftware/hlf-sync:v{{ .Major }}"
+      - "quay.io/kfsoftware/hlf-sync:v{{ .Major }}.{{ .Minor }}"
       - "quay.io/kfsoftware/hlf-sync:latest"
+
     extra_files:
       - LICENSE
       - README.md
