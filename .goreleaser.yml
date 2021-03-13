@@ -1,0 +1,49 @@
+project_name: hlf-sync
+
+release:
+  name_template: "Version {{.Version}}"
+  github:
+    owner: kfsoftware
+    name: hlf-sync
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod download
+
+builds:
+
+  - id: hlf-sync
+    binary: hlf-sync
+    goos:
+      - linux
+      - darwin
+      - windows
+      - freebsd
+    goarch:
+      - amd64
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X main.version={{.Tag}}
+    flags:
+      - -trimpath
+
+archives:
+  -
+    format: binary
+    allow_different_binary_count: true
+
+dockers:
+  -
+    # GOOS of the built binary that should be used.
+    goos: linux
+    # GOARCH of the built binary that should be used.
+    goarch: amd64
+    dockerfile: Dockerfile
+    image_templates:
+      - "quay.io/kfsoftware/hlf-sync:{{ .Tag }}"
+      - "quay.io/kfsoftware/hlf-sync:latest"
+    extra_files:
+      - LICENSE
+      - README.md

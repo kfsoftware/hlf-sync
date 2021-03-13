@@ -1,0 +1,6 @@
+database:
+  type: elasticsearch
+  urls:
+    - http://localhost:9200
+  user:
+  password:

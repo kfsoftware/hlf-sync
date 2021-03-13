@@ -1,0 +1,4 @@
+database:
+  type: sql
+  driver: mysql
+  dataSource: root:my-secret-pw@tcp(127.0.0.1:3306)/hlf?charset=utf8mb4&parseTime=True&loc=Local

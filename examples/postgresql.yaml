@@ -1,0 +1,4 @@
+database:
+  type: sql
+  driver: postgres
+  dataSource: host=localhost port=5432 user=postgres password=postgres dbname=hlf sslmode=disable

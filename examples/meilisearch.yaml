@@ -1,0 +1,4 @@
+database:
+  type: meilisearch
+  url: "http://localhost:7700"
+  apiKey: ""
