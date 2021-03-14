@@ -1,21 +1,10 @@
-# HLF Exporter
+# HLF Sync
 
 ## Introduction
 
 Hyperledger Fabric stores the information in blocks, but this information is not structured and lacks search/processing capabilities of new databases.
 
-This project aims to store all the information in an offchain database to access the blockchain data aswell as add as a means to see the data for other purposes, such as validating, dashboards, statistics, etcetera. 
-
-## Get started
-
-Pre requisites:
-- A running Hyperledger Fabric network 
-- A running supported database
-
-```bash
-hlf-sync --network=./hlf.yaml --config=config.yaml
-``` 
-
+This project aims to store all the information in an OffChain database to access the blockchain data as well as add as a means to see the data for other purposes, such as validating, dashboards, statistics, etc. 
 ## Databases supported
 
 - [x] Elasticsearch
@@ -23,6 +12,18 @@ hlf-sync --network=./hlf.yaml --config=config.yaml
 - [x] MySQL
 - [x] MariaDB
 - [x] Meilisearch
+
+## Get started
+
+Pre requisites:
+- A running Hyperledger Fabric network 
+- A running supported database
+
+You can download the binary in the [release page](https://github.com/kfsoftware/hlf-sync/releases)
+
+```bash
+hlf-sync --network=./hlf.yaml --config=config.yaml --channel=mychannelname
+```
 
 ## Network Config
 
@@ -69,6 +70,5 @@ database:
     - http://localhost:9200
   user:
   password:
-
 ```
 
