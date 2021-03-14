@@ -24,11 +24,51 @@ hlf-sync --network=./hlf.yaml --config=config.yaml
 - [x] MariaDB
 - [x] Meilisearch
 
-## Configuration file
+## Network Config
 
+Network config file needs to be compliant with fabric-sdk-go. You can find examples in [the official repo](https://github.com/hyperledger/fabric-sdk-go/blob/main/test/fixtures/config/config_e2e.yaml).
+
+## Configuration file
+The configuration file for a meilisearch backend
 ```yaml
-meilisearch:
-    url: "http://localhost:7700"
-    user: ""
-    password: ""
+database:
+  type: meilisearch
+  url: "http://localhost:7700"
+  apiKey: ""
 ```
+
+The configuration file for a postgresql backend
+```yaml
+database:
+  type: sql
+  driver: postgres
+  dataSource: host=localhost port=5432 user=postgres password=postgres dbname=hlf sslmode=disable
+
+```
+The configuration file for a mysql backend
+```yaml
+database:
+  type: sql
+  driver: mysql
+  dataSource: root:my-secret-pw@tcp(127.0.0.1:3306)/hlf?charset=utf8mb4&parseTime=True&loc=Local
+```
+
+The configuration file for a mariadb backend
+```yaml
+database:
+  type: sql
+  driver: mysql
+  dataSource: root:my-secret-pw@tcp(127.0.0.1:3306)/hlf?charset=utf8mb4&parseTime=True&loc=Local
+```
+
+The configuration file for an Elasticsearch backend
+```yaml
+database:
+  type: elasticsearch
+  urls:
+    - http://localhost:9200
+  user:
+  password:
+
+```
+
