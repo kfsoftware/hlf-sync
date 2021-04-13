@@ -1,15 +1,17 @@
 package cmd
 
 import (
-	"github.com/kfsoftware/hlf-sync/pkg/listener"
-	"math"
 	"strconv"
 	"time"
+
+	"github.com/kfsoftware/hlf-sync/pkg/listener"
 
 	"github.com/dgraph-io/badger/v2"
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/ledger"
+	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/context"
+	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/fab"
 	"github.com/hyperledger/fabric-sdk-go/pkg/core/config"
 	"github.com/hyperledger/fabric-sdk-go/pkg/fabsdk"
 	"github.com/meilisearch/meilisearch-go"
@@ -43,6 +45,49 @@ const (
 	BatchBlockIndexing = 2000
 )
 
+func getTargetPeers(ctxChannel context.Channel) ([]fab.Peer, error) {
+	chHeight, err := getChannelHeight(ctxChannel)
+	if err != nil {
+		return nil, err
+	}
+	discovery, err := ctxChannel.ChannelService().Discovery()
+	if err != nil {
+		return nil, err
+	}
+	peers, err := discovery.GetPeers()
+	if err != nil {
+		return nil, err
+	}
+	var targetPeers []fab.Peer
+	for _, peer := range peers {
+		props := peer.Properties()
+		peerHeight := int(props[fab.PropertyLedgerHeight].(uint64))
+		if chHeight-peerHeight < 1000 {
+			targetPeers = append(targetPeers, peer)
+		}
+	}
+	return targetPeers, nil
+}
+func getChannelHeight(ctxChannel context.Channel) (int, error) {
+	discovery, err := ctxChannel.ChannelService().Discovery()
+	if err != nil {
+		return 0, err
+	}
+	peers, err := discovery.GetPeers()
+	if err != nil {
+		return 0, err
+	}
+	ledgerHeight := 0
+	for _, peer := range peers {
+		props := peer.Properties()
+		peerHeight := int(props[fab.PropertyLedgerHeight].(uint64))
+		if peerHeight > ledgerHeight {
+			ledgerHeight = peerHeight - 1
+		}
+	}
+	log.Infof("Ledger height= %d", ledgerHeight)
+	return ledgerHeight, nil
+}
 func NewSyncCmd() *cobra.Command {
 	c := options{}
 	cmd := &cobra.Command{
@@ -153,75 +198,82 @@ func NewSyncCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			chInfo, err := ledgerClient.QueryInfo()
+			chCtx, err := channelCtx()
 			if err != nil {
 				return err
 			}
-			chHeightBlock := int(chInfo.BCI.Height) - 1
+			targetPeers, err := getTargetPeers(chCtx)
+			if err != nil {
+				return err
+			}
+			log.Infof("Peers %v", targetPeers)
+			chHeightBlock, err := getChannelHeight(chCtx)
+			if err != nil {
+				return err
+			}
 			if chHeightBlock-blockNumber > MaxBlockDistance {
 				log.Infof("Starting bulk indexing, distance is=%d", chHeightBlock-blockNumber)
-				for {
-					chInfo, err := ledgerClient.QueryInfo()
-					if err != nil {
-						return err
-					}
-					chHeightBlock = int(chInfo.BCI.Height) - 1
-					var blocks []*common.Block
-					nextBatchBlockNumber := blockNumber + c.batchIndexStep
-					nextMaxBlock := int(math.Min(float64(chHeightBlock), float64(nextBatchBlockNumber)))
-					log.Debugf("Next max block %d, current block=%d, height=%d", nextMaxBlock, blockNumber, chHeightBlock)
-					if blockNumber >= chHeightBlock {
-						log.Debugf("Skipping, since next block %d and height=%d", blockNumber, chHeightBlock)
-						break
-					}
-					for i := blockNumber; i <= nextMaxBlock; i++ {
-						block, err := ledgerClient.QueryBlock(uint64(i))
-						if err != nil {
-							return err
-						}
-						if i%100 == 0 {
-							log.Infof("Fetching %d from %d", i, nextMaxBlock)
-						}
-						// log.Debugf("Fetching block %d", i)
-						blocks = append(blocks, block)
-					}
-					log.Debugf("Blocks in bulk=%d", len(blocks))
-					err = storage.StoreBulk(blocks)
-					if err != nil {
-						return err
-					}
-					log.Debugf("Updating database for block numbers=%d..%d", blockNumber, int(nextMaxBlock))
-					blockNumber = nextMaxBlock
-					err = db.Update(func(txn *badger.Txn) error {
-						val := []byte(strconv.Itoa(blockNumber))
-						err = txn.Set([]byte(CurrentBlockKey), val)
-						if err != nil {
-							log.Errorf("Failed to set current block key=%v", err)
-						}
-						return err
-					})
-					if err != nil {
-						log.Errorf("Failed to update Badger Database %v", err)
-					}
-				}
+				// for {
+				// 	chHeightBlock, err = getChannelHeight(chCtx)
+				// 	if err != nil {
+				// 		return err
+				// 	}
+				// 	nextBatchBlockNumber := blockNumber + c.batchIndexStep
+				// 	nextMaxBlock := int(math.Min(float64(chHeightBlock), float64(nextBatchBlockNumber)))
+				// 	log.Debugf("Next max block %d, current block=%d, height=%d", nextMaxBlock, blockNumber, chHeightBlock)
+				// 	if blockNumber >= chHeightBlock {
+				// 		log.Debugf("Skipping, since next block %d and height=%d", blockNumber, chHeightBlock)
+				// 		break
+				// 	}
+				// 	// var blocks []*common.Block
+				// 	// for i := blockNumber; i <= nextMaxBlock; i++ {
+				// 	// 	block, err := ledgerClient.QueryBlock(uint64(i), ledger.WithTargets(targetPeers...))
+				// 	// 	if err != nil {
+				// 	// 		return err
+				// 	// 	}
+				// 	// 	if i%100 == 0 {
+				// 	// 		log.Infof("Fetching %d from %d", i, nextMaxBlock)
+				// 	// 	}
+				// 	// 	// log.Debugf("Fetching block %d", i)
+				// 	// 	blocks = append(blocks, block)
+				// 	// }
+				// 	// log.Debugf("Blocks in bulk=%d", len(blocks))
+				// 	// err = storage.StoreBulk(blocks)
+				// 	// if err != nil {
+				// 	// 	return err
+				// 	// }
+				// 	// log.Debugf("Updating database for block numbers=%d..%d", blockNumber, int(nextMaxBlock))
+				// 	// blockNumber = nextMaxBlock
+				// 	// err = db.Update(func(txn *badger.Txn) error {
+				// 	// 	val := []byte(strconv.Itoa(blockNumber))
+				// 	// 	err = txn.Set([]byte(CurrentBlockKey), val)
+				// 	// 	if err != nil {
+				// 	// 		log.Errorf("Failed to set current block key=%v", err)
+				// 	// 	}
+				// 	// 	return err
+				// 	// })
+				// 	// if err != nil {
+				// 	// 	log.Errorf("Failed to update Badger Database %v", err)
+				// 	// }
+				// }
 			}
 			log.Infof("Starting from block number: %d", blockNumber)
+			pause := 10 * time.Second
 			go func() {
 				for {
-					chInfo, err := ledgerClient.QueryInfo()
+					currHeight, err := getChannelHeight(chCtx)
 					if err != nil {
 						log.Fatalf("Failed getting blockchain info: %v", err)
 						return
 					}
-					currHeight := int(chInfo.BCI.Height) - 1
 					if currHeight == blockNumber {
-						log.Infof("There are no blocks created, sleeping for 30 seconds")
-						time.Sleep(30 * time.Second)
+						log.Infof("There are no blocks created, sleeping for %s", pause)
+						time.Sleep(pause)
 						continue
 					}
 					var blocks []*common.Block
 					for i := blockNumber; i <= currHeight; i++ {
-						block, err := ledgerClient.QueryBlock(uint64(i))
+						block, err := ledgerClient.QueryBlock(uint64(i), ledger.WithTargets(targetPeers...))
 						if err != nil {
 							log.Fatalf("Failed getting block %d: %v", i, err)
 							return
@@ -250,8 +302,8 @@ func NewSyncCmd() *cobra.Command {
 					if err != nil {
 						log.Errorf("Failed to update Badger Database %v", err)
 					}
-					log.Infof("Sleeping for 30 seconds..")
-					time.Sleep(30 * time.Second)
+					log.Infof("Sleeping for %s..", pause)
+					time.Sleep(pause)
 				}
 
 			}()
